@@ -1,11 +1,16 @@
 const { app, BrowserWindow, ipcMain, Notification, Tray, Menu, nativeImage } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const Database = require('./db/database');
+const createUpdates = require('./updates');
+const createTrayIcon = require('./tray-icon');
 
 let win;
 let tray;
 let db;
 let reminderTimer;
+let updates;
+let updateTimer;
 
 const hasLock = app.requestSingleInstanceLock();
 if (!hasLock) app.quit();
@@ -21,7 +26,13 @@ function createWindow() {
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-  win.webContents.on('did-finish-load', () => console.log('应用页面加载完成'));
+  win.webContents.on('did-finish-load', () => {
+    console.log('应用页面加载完成');
+    if (updates.snapshot().status !== 'unavailable') {
+      clearTimeout(updateTimer);
+      updateTimer = setTimeout(() => updates.check(), 5000);
+    }
+  });
   win.webContents.on('render-process-gone', (_, details) => console.error('页面进程异常退出', details));
   win.on('close', event => {
     if (app.isQuitting) return;
@@ -50,7 +61,7 @@ function checkReminders() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromDataURL('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iMjYiIGhlaWdodD0iMjYiIHJ4PSI3IiBmaWxsPSIjNWI2Y2ZmIi8+PHRleHQgeD0iMTYiIHk9IjIyIiBmb250LXNpemU9IjE3IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSI+5pelPC90ZXh0Pjwvc3ZnPg==');
+  const icon = createTrayIcon(nativeImage);
   tray = new Tray(icon);
   tray.setToolTip('每日提醒与日程');
   tray.setContextMenu(Menu.buildFromTemplate([
@@ -80,11 +91,23 @@ function registerIpc() {
   ipcMain.handle('data:import', (_, json) => db.importData(json));
   ipcMain.handle('app:notification-status', () => Notification.isSupported());
   ipcMain.handle('app:minimize-tray', () => { win.hide(); return true; });
+  ipcMain.handle('update:state', () => updates.snapshot());
+  ipcMain.handle('update:check', () => updates.check());
+  ipcMain.handle('update:download', () => updates.download());
+  ipcMain.handle('update:install', () => updates.install());
 }
 
 app.whenReady().then(async () => {
   if (!hasLock) return;
   db = await Database.create(app.getPath('userData'));
+  updates = createUpdates({
+    updater: autoUpdater,
+    version: app.getVersion(),
+    enabled: app.isPackaged && process.platform === 'win32' && !process.env.PORTABLE_EXECUTABLE_FILE,
+    beforeInstall: () => { db.backupForUpdate(app.getVersion()); },
+    onState: status => { if (win && !win.isDestroyed()) win.webContents.send('update:status', status); }
+  });
+  autoUpdater.on('before-quit-for-update', () => { app.isQuitting = true; });
   app.setLoginItemSettings({openAtLogin:db.getSetting('startupEnabled',false),openAsHidden:true});
   registerIpc();
   createWindow();
@@ -95,4 +118,4 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', event => event.preventDefault());
-app.on('before-quit', () => { app.isQuitting = true; clearInterval(reminderTimer); if (db) db.close(); });
+app.on('before-quit', () => { app.isQuitting = true; clearTimeout(updateTimer); clearInterval(reminderTimer); if (db) db.close(); });

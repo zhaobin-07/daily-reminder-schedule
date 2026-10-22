@@ -25,6 +25,7 @@ class Database {
   all(sql,params=[]){const stmt=this.db.prepare(sql);stmt.bind(params);const rows=[];while(stmt.step())rows.push(stmt.getAsObject());stmt.free();return rows;}
   get(sql,params=[]){return this.all(sql,params)[0]||null;}
   persist(){fs.writeFileSync(this.file,Buffer.from(this.db.export()));}
+  backupForUpdate(version){this.persist();const folder=path.join(path.dirname(this.file),'backups');fs.mkdirSync(folder,{recursive:true});const safeVersion=String(version).replace(/[^a-zA-Z0-9.-]/g,'_');const target=path.join(folder,`before-update-${safeVersion}-${Date.now()}-${newId()}.sqlite`);fs.copyFileSync(this.file,target,fs.constants.COPYFILE_EXCL);return target;}
   getSetting(key,fallback){const row=this.get('SELECT value FROM settings WHERE key=?',[key]);return row?JSON.parse(row.value):fallback;}
   getSettings(){return Object.fromEntries(this.all('SELECT key,value FROM settings').map(row=>[row.key,JSON.parse(row.value)]));}
   saveSettings(settings){Object.entries(settings).forEach(([key,value])=>this.run('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',[key,JSON.stringify(value)]));this.persist();return this.getSettings();}

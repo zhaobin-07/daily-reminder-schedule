@@ -1,0 +1,18 @@
+.update-notes {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 220px;
+  overflow: auto;
+  font: inherit;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+[data-update-action]:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+progress[aria-label="下载进度"] {
+  width: 100%;
+  accent-color: var(--accent);
+}

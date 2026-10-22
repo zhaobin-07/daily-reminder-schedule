@@ -7,10 +7,13 @@
     "start": "electron .",
     "dev": "electron .",
     "test": "node --test",
-    "dist": "electron-builder --win",
+    "test:electron": "electron scripts/smoke-updates.cjs",
+    "dist": "electron-builder --win nsis --x64 --publish never",
+    "dist:portable": "electron-builder --win portable --x64 --publish never",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "sql.js": "^1.12.0"
   },
   "devDependencies": {
@@ -29,15 +32,29 @@
     ],
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ],
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "Daily-Reminder-Schedule-${version}-${arch}.${ext}",
+      "signAndEditExecutable": false
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "zhaobin-07",
+        "repo": "daily-reminder-schedule",
+        "private": false,
+        "releaseType": "release"
+      }
+    ],
     "nsis": {
+      "artifactName": "Daily-Reminder-Schedule-Setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "Daily-Reminder-Schedule-Portable-${version}-${arch}.${ext}"
     }
   }
 }

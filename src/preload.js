@@ -19,5 +19,14 @@ contextBridge.exposeInMainWorld('api', {
   exportData: () => ipcRenderer.invoke('data:export'),
   importData: json => ipcRenderer.invoke('data:import', json),
   notificationSupported: () => ipcRenderer.invoke('app:notification-status'),
-  minimizeToTray: () => ipcRenderer.invoke('app:minimize-tray')
+  minimizeToTray: () => ipcRenderer.invoke('app:minimize-tray'),
+  getUpdateState: () => ipcRenderer.invoke('update:state'),
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  downloadUpdate: () => ipcRenderer.invoke('update:download'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  onUpdateStatus: callback => {
+    const listener = (_, status) => callback(status);
+    ipcRenderer.on('update:status', listener);
+    return () => ipcRenderer.removeListener('update:status', listener);
+  }
 });

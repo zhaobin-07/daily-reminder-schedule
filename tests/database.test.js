@@ -22,6 +22,25 @@ const todo = (overrides = {}) => ({
   repeat: { frequency: 'none' }, ...overrides,
 });
 
+test('pre-update SQLite backup preserves saved todos and settings without replacing user data', async () => withDatabase(async (db, folder) => {
+  const item = db.saveTodo(todo({ title: '升级前的数据' }));
+  db.saveSettings({ theme: 'dark', fontSize: 18 });
+  const backup = db.backupForUpdate('0.1.0');
+  assert.equal(path.dirname(backup), path.join(folder, 'backups'));
+  assert.deepEqual(fs.readFileSync(backup), fs.readFileSync(db.file));
+  db.deleteTodo(item.id);
+  assert.notDeepEqual(fs.readFileSync(backup), fs.readFileSync(db.file));
+  const restoredFolder = path.join(folder, 'restored');
+  fs.mkdirSync(restoredFolder);
+  fs.copyFileSync(backup, path.join(restoredFolder, 'daily-reminder.sqlite'));
+  const restored = await Database.create(restoredFolder);
+  try {
+    assert.equal(restored.getDayData('2026-10-21').todos[0].title, '升级前的数据');
+    assert.equal(restored.getSettings().theme, 'dark');
+    assert.equal(restored.getSettings().fontSize, 18);
+  } finally { restored.close(); }
+}));
+
 test('weekly recurrence defaults to the start weekday and supports selected weekdays', async () => withDatabase(async db => {
   const defaultSeries = db.saveTodo(todo({ repeat: { frequency: 'weekly', endDate: '2026-11-04' } }));
   assert.deepEqual(db.all('SELECT date FROM todos WHERE series_id=? ORDER BY date', [defaultSeries.series_id]).map(row => row.date), [
