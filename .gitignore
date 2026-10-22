@@ -1,0 +1,20 @@
+# Dependencies and generated packages
+node_modules/
+release/
+dist/
+out/
+
+# Local Electron profiles and SQLite user data
+.electron-check/
+.smoke/
+*.sqlite
+*.sqlite-*
+
+# Logs and temporary files
+*.log
+npm-debug.log*
+
+# Local environment secrets
+.env
+.env.*
+!.env.example
